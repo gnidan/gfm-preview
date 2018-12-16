@@ -12,6 +12,7 @@ const args = arg({
   '--browser': String,
   '--host': String,
   '--port': Number,
+  '--auth': String,
   '-h': '--help',
   '-v': '--version',
   '-b': '--browser',
@@ -47,6 +48,7 @@ if (args['--help'] || (!filename)) {
       --host, -H {underline hostname}                      sets the hostname
       --port, -p {underline port_number}                   sets the port number
       --github-api-url {underline github_api_url}          sets the GitHub API URL (default: {underline https://api.github.com})
+      --auth {underline path_to_json_file}                 use http basic auth
   `)
   process.exit(0)
 }
@@ -57,10 +59,16 @@ const files = []
 const port = args['--port'] ? args['--port'] : 4649
 const encoding = 'utf-8'
 const apiUrl = args['--github-api-url'] ? args['--github-api-url'] : 'https://api.github.com'
+const authFile = args['--auth']
 const axios = require('axios')
 const app = require('express')()
 const { watch } = require('chokidar')
 let watcher
+
+const auth = (authFile)
+  ? JSON.parse(readFileSync(authFile))
+  : undefined
+console.debug("auth %o", auth);
 
 app.get('/gfm/favicon.ico', async (_, res) => {
   res.header('Content-Type', 'image/x-icon')
@@ -136,7 +144,7 @@ io.on('connection', (socket) => {
     const markdownExtension = /\.m(arkdown|kdn?|d(o?wn)?)(\?.*)?(#.*)?$/i
     if (markdownExtension.test(extname(currentFile))) {
       try {
-        const response = await axios.post(apiUrl + '/markdown', { text, mode: 'gfm' })
+        const response = await axios.post(apiUrl + '/markdown', { text, mode: 'gfm' }, { auth })
         content = response.data
       } catch (e) {
         content = e.response.data.message
